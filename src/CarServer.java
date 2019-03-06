@@ -1,11 +1,16 @@
 import java.net.*;
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class CarServer {
 
-  public static HashMap<Car, AtomicInteger> cars = new HashMap<Car, AtomicInteger>();
+  public static int recordsCount = 0;
+
+  public static  HashMap<Integer, ArrayList<String>> records = new HashMap<>(); //record #, customer name, car type, car color
+  public static HashMap<String, ArrayList<Integer>> rentedCars = new HashMap<>(); //customer name, list of record numbers
+  public static List<Car> availableCars = Collections.synchronizedList(new ArrayList<Car>());
+
+  private ServerSocket serverSocket = null;
 
   public static void main (String[] args) {
     int tcpPort;
@@ -26,27 +31,121 @@ public class CarServer {
       sc = new Scanner(new FileReader(fileName));
 
       while(sc.hasNextLine()) {
-        String cmd = sc.nextLine();
-        String[] tokens = cmd.split(" ");
+        String nextLine = sc.nextLine();
+        String[] tokens = nextLine.split(" ");
 
-        Car newCar = new Car(tokens[0], tokens[1]);
-        int quantity = Integer.parseInt(tokens[2]);
-        AtomicInteger atomicQuantity = new AtomicInteger(quantity);
+        Car newCar = new Car(tokens[0], tokens[1], Integer.parseInt(tokens[2]));
 
-        cars.put(newCar, atomicQuantity);
+        availableCars.add(newCar);
       }
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     }
 
-
-
     // TODO: handle request from clients
+    UDPServerThread udpServerThread = new UDPServerThread(udpPort, len);
+    TCPServerThread tcpServerThread = new TCPServerThread(tcpPort);
+    udpServerThread.start();
+    tcpServerThread.start();
+
 
 
   }
+ ////////////////////////////////////////////////////
+  //car functions
+  public static synchronized int rent(String customer, String brand, String color){
 
-  public class UDPServerThread extends Thread{
+    for(Car c : availableCars){
+      if(c.brand.equals(brand) && c.color.equals(color)){
+        if(c.quantity != 0){
+          recordsCount++;
+          c.quantity--;
+
+          if(rentedCars.containsKey(customer)){
+            ArrayList<Integer> customerRecords = rentedCars.get(customer);
+            customerRecords.add(recordsCount);
+            rentedCars.put(customer, customerRecords);
+          }
+          else{
+            ArrayList<Integer> customerRecords = new ArrayList<>();
+            customerRecords.add(recordsCount);
+            rentedCars.put(customer, customerRecords);
+          }
+
+          ArrayList<String> recordInfo = new ArrayList<>();
+          recordInfo.add(customer);
+          recordInfo.add(brand);
+          recordInfo.add(color);
+          records.put(recordsCount, recordInfo);
+
+          return recordsCount;
+        }
+        else{
+          return 0;
+        }
+      }
+    }
+    return -1;
+  }
+
+  public static synchronized boolean returnCar(int recordID){
+    if(records.containsKey(recordID)){
+      String customer = records.get(recordID).get(0);
+      String brand = records.get(recordID).get(1);
+      String color = records.get(recordID).get(2);
+      for(Car c : availableCars){
+        if(c.brand.equals(brand) && c.color.equals(color)) {
+          c.quantity++;
+        }
+      }
+      records.remove(recordID);
+
+      ArrayList<Integer> customerRecords = rentedCars.get(customer);
+      for(int i = 0; i < customerRecords.size(); i++){
+        if(customerRecords.get(i) == recordID){
+          customerRecords.remove(i);
+          if(customerRecords.size() == 0){
+            rentedCars.remove(customer);
+          }
+          return true;
+        }
+      }
+
+    }
+    return false;
+  }
+
+  public static synchronized String inventory(){
+    String inventory = "";
+    for(Car c : availableCars){
+      inventory += c.brand + " " + c.color + " " + c.quantity + "\n";
+    }
+    inventory.substring(0, inventory.lastIndexOf("\n"));
+    return inventory;
+  }
+
+  public static synchronized String list(String customer){
+    if(!rentedCars.containsKey(customer)){
+      return "No record found for " + customer;
+    }
+    else{
+      String list = "";
+      for(int recordID : rentedCars.get(customer)){
+        ArrayList<String> recordInfo = records.get(recordID);
+        list += recordID + " " + recordInfo.get(1) + " " + recordInfo.get(2) + "\n";
+      }
+      list.substring(0, list.lastIndexOf("\n"));
+      return list;
+    }
+  }
+
+  public static synchronized void exit(){
+
+  }
+
+  ///////////////////////////////////////////////////////////
+
+  public static class UDPServerThread extends Thread{
 
     int port, len;
 
@@ -60,59 +159,172 @@ public class CarServer {
 
       try {
         DatagramSocket datasocket = new DatagramSocket(port);
-        byte[] buf = new byte[len];
+
         while (true) {
+
+          byte[] buf = new byte[len];
           datapacket = new DatagramPacket(buf, buf.length);
+
           datasocket.receive(datapacket);
-          returnpacket = new DatagramPacket(
-                  datapacket.getData(),
-                  datapacket.getLength(),
-                  datapacket.getAddress(),
-                  datapacket.getPort());
-          datasocket.send(returnpacket);
+
+          String data = new String(datapacket.getData());
+
+          InetAddress ip = datapacket.getAddress();
+
+          String[] tokens = data.split(" ");
+
+          if (tokens[0].equals("rent")) {
+            int recordNum = rent(tokens[1], tokens[2], tokens[3]);
+            if(recordNum == 0){
+              String resp = "Request Failed - Car not available";
+              sendUDPResponse(ip, port, resp, datasocket);
+            }
+            else if(recordNum == -1){
+              String resp = "Request Failed - We do not have this car";
+              sendUDPResponse(ip, port, resp, datasocket);
+            }
+            else{
+              String resp = "Your request has been approved, " + recordNum + " " + tokens[1] + " " + tokens[2] + " " + tokens[3];
+              sendUDPResponse(ip, port, resp, datasocket);
+            }
+
+          } else if (tokens[0].equals("return")) {
+            int recordID = Integer.parseInt(tokens[1]);
+            boolean returnCarSuccess = returnCar(recordID);
+            if(returnCarSuccess){
+              String resp = recordID + " is returned";
+              sendUDPResponse(ip, port, resp, datasocket);
+            }
+            else{
+              String resp = recordID + " not found, no such rental record";
+              sendUDPResponse(ip, port, resp, datasocket);
+            }
+
+          } else if (tokens[0].equals("inventory")) {
+            String resp = inventory();
+            sendUDPResponse(ip, port, resp, datasocket);
+
+          } else if (tokens[0].equals("list")) {
+            String resp = list(tokens[1]);
+            sendUDPResponse(ip, port, resp, datasocket);
+
+          } else if (tokens[0].equals("exit")) {
+            exit();
+          }
+
         }
-      } catch (SocketException e) {
-        System.err.println(e);
-      } catch (IOException e) {
+      } catch (Exception e) {
         System.err.println(e);
       }
     }
   }
 
-  public class TCPServerThread extends Thread{
-    Socket theClient;
-    public TCPServerThread(Socket s) {
-      theClient = s;
+  public static void sendUDPResponse(InetAddress ip, int port, String resp, DatagramSocket socket){
+    byte[] data = resp.getBytes();
+    DatagramPacket respPacket = new DatagramPacket(data, data.length, ip, port);
+    try{
+      socket.send(respPacket);
+    }catch (Exception e){
+      e.printStackTrace();
+    }
+  }
+
+  /////////////////////////////////////////////////////////
+
+  public static class TCPServerThread extends Thread{
+
+    private Socket s;
+    int port;
+
+    public TCPServerThread(int port) {
+      this.port = port;
     }
     public void run() {
       try {
-        Scanner sc = new Scanner(theClient.getInputStream());
-        PrintWriter pout = new PrintWriter(theClient.getOutputStream());
-        String command = sc.nextLine();
-        System.out.println("received:" + command);
-        Scanner st = new Scanner(command);
-        String tag = st.next();
-        if (tag.equals("search")) {
-          InetSocketAddress addr = table.search(st.next());
-          if (addr == null) pout.println(0 + " " + "nullhost");
-          else pout.println(addr.getPort() + " " + addr.getHostName());
-        } else if (tag.equals("insert")) {
-          String name = st.next();
-          String hostName = st.next();
-          int port = st.nextInt();
-          int retValue = table.insert(name, hostName, port);
-          pout.println(retValue);
-        } else if (tag.equals("blockingFind")) {
-          InetSocketAddress addr = table.blockingFind(st.next());
-          pout.println(addr.getPort() + " " + addr.getHostName());
-        } else if (tag.equals("clear")) {
-          table.clear();
+        ServerSocket listener = new ServerSocket(port);
+        Socket s;
+        while ( (s = listener.accept()) != null) {
+          new TCPThread(s);
         }
-        pout.flush();
-        theClient.close();
       } catch (IOException e) {
         System.err.println(e);
       }
+
+    }
+  }
+
+
+
+  public static class TCPThread extends Thread{
+    private Socket client;
+
+    public TCPThread(Socket s){
+      client = s;
+      start();
+    }
+
+    @Override
+    public void run() {
+      BufferedReader req = null;
+      PrintWriter resp = null;
+
+      try{
+        req = new BufferedReader(new InputStreamReader(client.getInputStream()));
+        resp = new PrintWriter(client.getOutputStream(), true);
+      }
+      catch(Exception e){
+        e.printStackTrace();
+      }
+
+      String nextLine;
+
+      try{
+        boolean exit = false;
+        while(!exit){
+          while((nextLine = req.readLine()) == null){}
+          String[] tokens = nextLine.split(" ");
+
+          if (tokens[0].equals("rent")) {
+            int recordNum = rent(tokens[1], tokens[2], tokens[3]);
+            if(recordNum == 0){
+              resp.println("Request Failed - Car not available");
+            }
+            else if(recordNum == -1){
+              resp.println("Request Failed - We do not have this car");
+            }
+            else{
+              resp.println("Your request has been approved, " + recordNum + " " + tokens[1] + " " + tokens[2] + " " + tokens[3]);
+            }
+
+          } else if (tokens[0].equals("return")) {
+            int recordID = Integer.parseInt(tokens[1]);
+            boolean returnCarSuccess = returnCar(recordID);
+            if(returnCarSuccess){
+              resp.println(recordID + " is returned");
+            }
+            else{
+              resp.println(recordID + " not found, no such rental record");
+            }
+
+          } else if (tokens[0].equals("inventory")) {
+            String inventory = inventory();
+            resp.println(inventory);
+
+          } else if (tokens[0].equals("list")) {
+            String list = list(tokens[1]);
+            resp.println(list);
+
+          } else if (tokens[0].equals("exit")) {
+            exit();
+          }
+
+        }
+      }
+      catch(Exception e){
+        e.printStackTrace();
+      }
+
+
 
     }
   }

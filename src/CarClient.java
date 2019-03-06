@@ -24,9 +24,22 @@ public class CarClient {
     tcpPort = 7000;// hardcoded -- must match the server's tcp port
     udpPort = 8000;// hardcoded -- must match the server's udp port
 
+      File clientOutFile = new File("out_" + clientId + ".txt");
+
+      FileWriter fw = null;
+
+      try{
+          fw = new FileWriter(clientOutFile);
+      } catch (Exception e){
+          e.printStackTrace();
+      }
+
+      PrintWriter pw = new PrintWriter(fw, true);
+
     try {
       InetAddress ia = InetAddress.getByName(hostAddress);
       DatagramSocket datasocket = new DatagramSocket();
+      Socket socket = new Socket(hostAddress, tcpPort);
 
         Scanner sc = new Scanner(new FileReader(commandFile));
 
@@ -46,47 +59,47 @@ public class CarClient {
           else if (tokens[0].equals("rent")) {
             // TODO: send appropriate command to the server and display the
             if(isTCP){
-              //returnTCPPacket()
+                TCPRequest(cmd, socket, pw);
             }
             else{
-              //returnUDPPacket()
+                UDPRequest(cmd, datasocket, ia, udpPort, pw);
             }
             // appropriate responses form the server
           } else if (tokens[0].equals("return")) {
             // TODO: send appropriate command to the server and display the
             // appropriate responses form the server
-            if(isTCP){
-              //returnTCPPacket()
-            }
-            else{
-              //returnUDPPacket()
-            }
+              if(isTCP){
+                  TCPRequest(cmd, socket, pw);
+              }
+              else{
+                  UDPRequest(cmd, datasocket, ia, udpPort, pw);
+              }
           } else if (tokens[0].equals("inventory")) {
             // TODO: send appropriate command to the server and display the
             // appropriate responses form the server
-            if(isTCP){
-              //returnTCPPacket()
-            }
-            else{
-              //returnUDPPacket()
-            }
+              if(isTCP){
+                  TCPRequest(cmd, socket, pw);
+              }
+              else{
+                  UDPRequest(cmd, datasocket, ia, udpPort, pw);
+              }
           } else if (tokens[0].equals("list")) {
             // TODO: send appropriate command to the server and display the
             // appropriate responses form the server
-            if(isTCP){
-              //returnTCPPacket()
-            }
-            else{
-              //returnUDPPacket()
-            }
+              if(isTCP){
+                  TCPRequest(cmd, socket, pw);
+              }
+              else{
+                  UDPRequest(cmd, datasocket, ia, udpPort, pw);
+              }
           } else if (tokens[0].equals("exit")) {
             // TODO: send appropriate command to the server
-            if(isTCP){
-              //returnTCPPacket()
-            }
-            else{
-              //returnUDPPacket()
-            }
+              if(isTCP){
+                  TCPRequest(cmd, socket, pw);
+              }
+              else{
+                  UDPRequest(cmd, datasocket, ia, udpPort, pw);
+              }
 
           } else {
             System.out.println("ERROR: No such command");
@@ -101,5 +114,46 @@ public class CarClient {
     } catch (IOException e) {
       System.err.println(e);
     }
+
   }
+
+  public static void TCPRequest(String cmd, Socket socket, PrintWriter pw){
+      try {
+          PrintWriter reqWriter = new PrintWriter(socket.getOutputStream(), true);
+          BufferedReader respReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+
+          reqWriter.println(cmd);
+
+          String resp;
+          if((resp = respReader.readLine()) != null){
+              pw.println(resp);
+          }
+      }
+      catch (Exception e){
+          e.printStackTrace();
+      }
+
+  }
+
+  public static void UDPRequest(String cmd, DatagramSocket socket, InetAddress ia, int port, PrintWriter pw){
+      try {
+          byte[] buf = new byte[cmd.length()];
+          byte[] resp = new byte[4096];
+
+          buf = cmd.getBytes();
+
+          DatagramPacket reqPacket = new DatagramPacket(buf, cmd.length(), ia, port);
+          socket.send(reqPacket);
+
+          DatagramPacket respPacket = new DatagramPacket(resp, resp.length);
+          socket.receive(respPacket);
+
+          String output = new String(respPacket.getData(), 0, respPacket.getLength());
+          pw.println(output);
+      }
+      catch(Exception e){
+          e.printStackTrace();
+      }
+  }
+
 }

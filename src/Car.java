@@ -1,16 +1,16 @@
 import java.util.*;
 
 public class Car {
-    public String make;
+    public String brand;
     public String color;
 
-    public String customer;
+    public int quantity;
 
-    public Car(String make, String color){
-        this.make = make;
+    public Car(String make, String color, int quantity){
+        this.brand = make;
         this.color = color;
+        this.quantity = quantity;
 
-        customer = "";
     }
 
 }
