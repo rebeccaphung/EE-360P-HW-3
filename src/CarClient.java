@@ -9,6 +9,7 @@ public class CarClient {
     int tcpPort;
     int udpPort;
     int clientId;
+    boolean isTCP = false;
 
     if (args.length != 2) {
       System.out.println("ERROR: Provide 2 arguments: commandFile, clientId");
@@ -34,22 +35,58 @@ public class CarClient {
           String[] tokens = cmd.split(" ");
 
           if (tokens[0].equals("setmode")) {
-            // TODO: set the mode of communication for sending commands to the server 
+            // TODO: set the mode of communication for sending commands to the server
+            if(tokens[1].equals("U")){
+              isTCP = false;
+            }
+            if(tokens[1].equals("T")){
+              isTCP = true;
+            }
           }
           else if (tokens[0].equals("rent")) {
             // TODO: send appropriate command to the server and display the
+            if(isTCP){
+              //returnTCPPacket()
+            }
+            else{
+              //returnUDPPacket()
+            }
             // appropriate responses form the server
           } else if (tokens[0].equals("return")) {
             // TODO: send appropriate command to the server and display the
             // appropriate responses form the server
+            if(isTCP){
+              //returnTCPPacket()
+            }
+            else{
+              //returnUDPPacket()
+            }
           } else if (tokens[0].equals("inventory")) {
             // TODO: send appropriate command to the server and display the
             // appropriate responses form the server
+            if(isTCP){
+              //returnTCPPacket()
+            }
+            else{
+              //returnUDPPacket()
+            }
           } else if (tokens[0].equals("list")) {
             // TODO: send appropriate command to the server and display the
             // appropriate responses form the server
+            if(isTCP){
+              //returnTCPPacket()
+            }
+            else{
+              //returnUDPPacket()
+            }
           } else if (tokens[0].equals("exit")) {
             // TODO: send appropriate command to the server
+            if(isTCP){
+              //returnTCPPacket()
+            }
+            else{
+              //returnUDPPacket()
+            }
 
           } else {
             System.out.println("ERROR: No such command");
