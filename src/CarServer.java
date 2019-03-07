@@ -20,8 +20,8 @@ public class CarServer {
       System.exit(-1);
     }
     String fileName = args[0];
-    tcpPort = 7000;
-    udpPort = 8000;
+    tcpPort = 7050;
+    udpPort = 8050;
     int len = 1024;
 
     // parse the inventory file
@@ -47,8 +47,6 @@ public class CarServer {
     TCPServerThread tcpServerThread = new TCPServerThread(tcpPort);
     udpServerThread.start();
     tcpServerThread.start();
-
-
 
   }
  ////////////////////////////////////////////////////
@@ -118,9 +116,8 @@ public class CarServer {
   public static synchronized String inventory(){
     String inventory = "";
     for(Car c : availableCars){
-      inventory += c.brand + " " + c.color + " " + c.quantity + "\n";
+      inventory += c.brand + " " + c.color + " " + c.quantity + ">";
     }
-    inventory.substring(0, inventory.lastIndexOf("\n"));
     return inventory;
   }
 
@@ -132,15 +129,27 @@ public class CarServer {
       String list = "";
       for(int recordID : rentedCars.get(customer)){
         ArrayList<String> recordInfo = records.get(recordID);
-        list += recordID + " " + recordInfo.get(1) + " " + recordInfo.get(2) + "\n";
+        list += recordID + " " + recordInfo.get(1) + " " + recordInfo.get(2) + ">";
       }
-      list.substring(0, list.lastIndexOf("\n"));
       return list;
     }
   }
 
   public static synchronized void exit(){
 
+    File outFile = new File("inventory.txt");
+
+    FileWriter fw = null;
+
+    try{
+      fw = new FileWriter(outFile);
+      PrintWriter pw = new PrintWriter(fw, true);
+      String inven = inventory();
+      inven = inven.replaceAll(">","\n");
+      pw.println(inven);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 
   ///////////////////////////////////////////////////////////

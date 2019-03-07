@@ -21,8 +21,8 @@ public class CarClient {
     String commandFile = args[0];
     clientId = Integer.parseInt(args[1]);
     hostAddress = "localhost";
-    tcpPort = 7000;// hardcoded -- must match the server's tcp port
-    udpPort = 8000;// hardcoded -- must match the server's udp port
+    tcpPort = 7050;// hardcoded -- must match the server's tcp port
+    udpPort = 8050;// hardcoded -- must match the server's udp port
 
       File clientOutFile = new File("out_" + clientId + ".txt");
 
@@ -94,12 +94,10 @@ public class CarClient {
               }
           } else if (tokens[0].equals("exit")) {
             // TODO: send appropriate command to the server
-              if(isTCP){
                   TCPRequest(cmd, socket, pw);
-              }
-              else{
+                  socket.close();
                   UDPRequest(cmd, datasocket, ia, udpPort, pw);
-              }
+                  datasocket.close();
 
           } else {
             System.out.println("ERROR: No such command");
@@ -126,6 +124,7 @@ public class CarClient {
 
           String resp;
           if((resp = respReader.readLine()) != null){
+              resp = resp.replaceAll(">","\n");
               pw.println(resp);
           }
       }
