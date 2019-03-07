@@ -20,8 +20,8 @@ public class CarServer {
       System.exit(-1);
     }
     String fileName = args[0];
-    tcpPort = 7050;
-    udpPort = 8050;
+    tcpPort = 7070;
+    udpPort = 8090;
     int len = 1024;
 
     // parse the inventory file
@@ -177,8 +177,10 @@ public class CarServer {
           datasocket.receive(datapacket);
 
           String data = new String(datapacket.getData());
+          data = data.substring(0, data.indexOf('\u0000'));
 
           InetAddress ip = datapacket.getAddress();
+          int retPort = datapacket.getPort();
 
           String[] tokens = data.split(" ");
 
@@ -186,15 +188,15 @@ public class CarServer {
             int recordNum = rent(tokens[1], tokens[2], tokens[3]);
             if(recordNum == 0){
               String resp = "Request Failed - Car not available";
-              sendUDPResponse(ip, port, resp, datasocket);
+              sendUDPResponse(ip, retPort, resp, datasocket);
             }
             else if(recordNum == -1){
               String resp = "Request Failed - We do not have this car";
-              sendUDPResponse(ip, port, resp, datasocket);
+              sendUDPResponse(ip, retPort, resp, datasocket);
             }
             else{
               String resp = "Your request has been approved, " + recordNum + " " + tokens[1] + " " + tokens[2] + " " + tokens[3];
-              sendUDPResponse(ip, port, resp, datasocket);
+              sendUDPResponse(ip, retPort, resp, datasocket);
             }
 
           } else if (tokens[0].equals("return")) {
@@ -202,20 +204,20 @@ public class CarServer {
             boolean returnCarSuccess = returnCar(recordID);
             if(returnCarSuccess){
               String resp = recordID + " is returned";
-              sendUDPResponse(ip, port, resp, datasocket);
+              sendUDPResponse(ip, retPort, resp, datasocket);
             }
             else{
               String resp = recordID + " not found, no such rental record";
-              sendUDPResponse(ip, port, resp, datasocket);
+              sendUDPResponse(ip, retPort, resp, datasocket);
             }
 
           } else if (tokens[0].equals("inventory")) {
             String resp = inventory();
-            sendUDPResponse(ip, port, resp, datasocket);
+            sendUDPResponse(ip, retPort, resp, datasocket);
 
           } else if (tokens[0].equals("list")) {
             String resp = list(tokens[1]);
-            sendUDPResponse(ip, port, resp, datasocket);
+            sendUDPResponse(ip, retPort, resp, datasocket);
 
           } else if (tokens[0].equals("exit")) {
             exit();

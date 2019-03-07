@@ -21,8 +21,8 @@ public class CarClient {
     String commandFile = args[0];
     clientId = Integer.parseInt(args[1]);
     hostAddress = "localhost";
-    tcpPort = 7050;// hardcoded -- must match the server's tcp port
-    udpPort = 8050;// hardcoded -- must match the server's udp port
+    tcpPort = 7070;// hardcoded -- must match the server's tcp port
+    udpPort = 8090;// hardcoded -- must match the server's udp port
 
       File clientOutFile = new File("out_" + clientId + ".txt");
 
@@ -141,13 +141,15 @@ public class CarClient {
 
           buf = cmd.getBytes();
 
-          DatagramPacket reqPacket = new DatagramPacket(buf, cmd.length(), ia, port);
+          DatagramPacket reqPacket = new DatagramPacket(buf, buf.length, ia, port);
           socket.send(reqPacket);
+
 
           DatagramPacket respPacket = new DatagramPacket(resp, resp.length);
           socket.receive(respPacket);
 
           String output = new String(respPacket.getData(), 0, respPacket.getLength());
+          output = output.replaceAll(">","\n");
           pw.println(output);
       }
       catch(Exception e){
