@@ -118,6 +118,7 @@ public class CarServer {
     for(Car c : availableCars){
       inventory += c.brand + " " + c.color + " " + c.quantity + ">";
     }
+    inventory = inventory.substring(0, inventory.lastIndexOf(">"));
     return inventory;
   }
 
@@ -130,6 +131,7 @@ public class CarServer {
       for(int recordID : rentedCars.get(customer)){
         ArrayList<String> recordInfo = records.get(recordID);
         list += recordID + " " + recordInfo.get(1) + " " + recordInfo.get(2) + ">";
+        list = list.substring(0, list.lastIndexOf(">"));
       }
       return list;
     }
